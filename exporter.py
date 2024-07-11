@@ -239,9 +239,6 @@ if __name__ == '__main__':
         print("Format is STATS_ENDPOINTS=redis1-addr:port,redis2-addr:port,...")
         sys.exit(1)
 
-    print(STATS_ENDPOINTS)
-    sys.exit(0)
-
     print(f"Serving metrics from: {HOST}:{PORT}")
     print(f"Stats endpoints: {STATS_ENDPOINTS}")
     HTTPServer((HOST, PORT), RequestHandler).serve_forever()
