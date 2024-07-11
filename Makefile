@@ -1,4 +1,4 @@
-IMAGE_TAG  ?= 0.2.1
+IMAGE_TAG  ?= 0.2.2
 IMAGE_NAME ?= ghcr.io/getupcloud/twemproxy-prometheus-exporter
 IMAGE      := $(IMAGE_NAME):$(IMAGE_TAG)
 
