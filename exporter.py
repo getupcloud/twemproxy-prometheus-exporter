@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import socket
+import argparse
 import prometheus_client as pc
 from http.server import HTTPServer
 
@@ -11,13 +12,7 @@ pc.REGISTRY.unregister(pc.GC_COLLECTOR)
 pc.REGISTRY.unregister(pc.PLATFORM_COLLECTOR)
 pc.REGISTRY.unregister(pc.PROCESS_COLLECTOR)
 
-try:
-    STATS_ENDPOINTS = [ (host or "127.0.0.1", int(port)) for host, port in [ ep.split(':') for ep in os.environ.get('STATS_ENDPOINTS', '').split(',') ]]
-except ValueError as ex:
-    print(f"Invalid var STATS_ENDPOINTS: {os.environ.get('STATS_ENDPOINTS', '')}")
-    print("Format is STATS_ENDPOINTS=redis1-addr:port,redis2-addr:port,...")
-    sys.exit(1)
-
+STATS_ENDPOINTS = [] # list of redis host:port to collect statists from
 HOST, PORT = os.environ.get("LISTEN_HOST", "0.0.0.0"), os.environ.get('LISTEN_PORT', 9090)
 
 class DeltaCounter(pc.Counter):
@@ -178,7 +173,7 @@ pool_stats = [
 ]
 
 def load_stats():
-    global STATS_PORTS
+    global STATS_ENDPOINTS
     for endpoint in STATS_ENDPOINTS:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(endpoint)
@@ -215,6 +210,38 @@ class RequestHandler(pc.MetricsHandler):
         return super(RequestHandler, self).do_GET()
 
 if __name__ == '__main__':
-  print(f"Serving metrics from: {HOST}:{PORT}")
-  print(f"Stats endpoints: {STATS_ENDPOINTS}")
-  HTTPServer((HOST, PORT), RequestHandler).serve_forever()
+    parser = argparse.ArgumentParser(
+                        prog='ProgramName',
+                        description='Prometheus exporter for Twemproxy/Nutcracker')
+
+    parser.add_argument('-e', '--endpoint', action='append')
+    args = parser.parse_args()
+
+    try:
+        if args.endpoint:
+            STATS_ENDPOINTS.extend([
+                (host or "127.0.0.1", int(port))
+                for host, port in [
+                    ep.split(':') for ep in args.endpoint
+                ]
+            ])
+
+        if 'STATS_ENDPOINTS' in os.environ:
+            STATS_ENDPOINTS.extend([
+                (host or "127.0.0.1", int(port))
+                for host, port in [
+                    ep.split(':') for ep in os.environ.get('STATS_ENDPOINTS', '').split(',')
+                ]
+            ])
+    except ValueError as ex:
+        print(ex)
+        print(f"Invalid var STATS_ENDPOINTS: {os.environ.get('STATS_ENDPOINTS', '')}")
+        print("Format is STATS_ENDPOINTS=redis1-addr:port,redis2-addr:port,...")
+        sys.exit(1)
+
+    print(STATS_ENDPOINTS)
+    sys.exit(0)
+
+    print(f"Serving metrics from: {HOST}:{PORT}")
+    print(f"Stats endpoints: {STATS_ENDPOINTS}")
+    HTTPServer((HOST, PORT), RequestHandler).serve_forever()
